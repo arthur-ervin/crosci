@@ -15,66 +15,29 @@ typedef struct
     double c;
 } BestFitResult;
 
-// function to find the sum of a given array
-double sum(double* arr, int n)
-{
-    double sum = 0;
-    int i;
-    for (i = 0; i < n; i++)
-        sum += arr[i];
-    return sum;
-}
-
-// function to find the product of two given arrays
-double sumOfProduct(double* arr1, double* arr2, int n)
-{
-    double sum = 0;
-    int i;
-    for (i = 0; i < n; i++)
-        sum += arr1[i] * arr2[i];
-    return sum;
-}
-
-// function to find the square of a given array
-double sumOfSquare(double* arr, int n)
-{
-    double sum = 0;
-    int i;
-    for (i = 0; i < n; i++)
-        sum += arr[i] * arr[i];
-    return sum;
-}
-
 // function to calculate the best fit
-BestFitResult bestFit(double* x, double* y, double* sum_mem, double* square_sum_mem, double* product_sum_mem, int n)
+BestFitResult bestFit(double S_y, double S_xy, int n)
 {
     BestFitResult result;
-    double sum_x = (n*(n+1))/2;
-    double sum_y = sum_mem[n];
-    double sum_x_sq = square_sum_mem[n];
-    double sum_xy = product_sum_mem[n];
+    double S_x = (n*(n+1))/2.0;
+    double S_x2 = (double)n * (n + 1) * (2 * n + 1) / 6.0;
 
-    result.m = (n * sum_xy - sum_x * sum_y) / (n * sum_x_sq - sum_x * sum_x);
-    result.c = (sum_y - result.m * sum_x) / n;
+    double denom = (n * S_x2 - S_x * S_x);
+    result.m = (n * S_xy - S_x * S_y) / denom;
+    result.c = (S_y - result.m * S_x) / n;
+
     return result;
 }
 
 // function to calculate the sum of squared errors
-double sumOfSquaredErrors(double* x, double* y, int n, double m, double c)
+double sumOfSquaredErrors(double S_y, double S_y2, double S_xy, int n, double m, double c)
 {
-    double sum = 0;
-    int i;
-    for (i = 0; i < n; i++)
-    {
-        double error = y[i] - (m * x[i] + c);
-        sum += error * error;
-    }
-    return sum;
-}
+    double S_x = (double)n * (n + 1) / 2.0;
+    double S_x2 = (double)n * (n + 1) * (2 * n + 1) / 6.0;
 
-int main()
-{
-    return 0;
+    double error = S_y2 - 2*(m*S_xy + S_y*c);
+    error += m*m*S_x2 + 2*c*m*S_x + (double)n*c*c;
+    return error;
 }
 
 /* Detrended fluctuation analysis
@@ -98,25 +61,22 @@ double* dfa(double* seq, long npts, long* rs, int nr, double overlap_perc)
     long largest_window_size = rs[nr - 1];
 
     double* mse = (double*)malloc(nr * sizeof(double));
-    double* x = (double*)malloc(largest_window_size * sizeof(double));
 
-    for (i = 0; i < largest_window_size; i++)
-    {
-        x[i] = i + 1;
-    }
+    double* sum_mem = malloc((npts+1) * sizeof(double));
+    double* square_sum_mem = malloc((npts+1) * sizeof(double));
+    double* product_sum_mem = malloc((npts+1) * sizeof(double));
 
-    double* sum_mem = malloc((nr+1) * sizeof(double));
-    double* square_sum_mem = malloc((nr+1) * sizeof(double));
-    double* product_sum_mem = malloc((nr+1) * sizeof(double));
+    sum_mem[0] = 0;
+    square_sum_mem[0] = 0;
+    product_sum_mem[0] = 0;
 
     for(int i = 1; i <= npts; i++){
-        sum_mem[i] = seq[i] + sum_mem[i+1];
-        square_sum_mem[i] = seq[i]*seq[i] + square_sum_mem[i+1];
-        product_sum_mem[i] += product_sum_mem[i+1];
-        for(int j = 1; j<=i; j++){
-            product_sum_mem[i] += seq[j];
-        }
+        sum_mem[i] = seq[i-1] + sum_mem[i-1];
+        square_sum_mem[i] = seq[i-1]*seq[i-1] + square_sum_mem[i-1];
+        product_sum_mem[i] = product_sum_mem[i-1] + i*seq[i-1];
     }
+
+
 
     int num_W = 0;
     double local_mse = 0.0;
@@ -137,18 +97,31 @@ double* dfa(double* seq, long npts, long* rs, int nr, double overlap_perc)
         num_W = 0;
         local_mse = 0.0;
 
-#pragma omp parallel for reduction(+ : local_mse, num_W) private(bestFitResult)
         for (j = 0; j < npts - boxsize; j += inc)
         {
-            bestFitResult = bestFit(x, seq + j, sum_mem, square_sum_mem, product_sum_mem, boxsize);
-            local_mse += sqrt(sumOfSquaredErrors(x, seq + j, boxsize, bestFitResult.m, bestFitResult.c) / boxsize);
+            double S_y = sum_mem[j+boxsize] - sum_mem[j];
+            double S_y2 = square_sum_mem[j+boxsize] - square_sum_mem[j];
+            double S_xy_global = product_sum_mem[j+boxsize] - product_sum_mem[j];
+            double S_xy = S_xy_global - ((double)j * S_y);
+            
+            bestFitResult = bestFit(S_y, 
+                S_xy, 
+                boxsize);
+            local_mse += sqrt(sumOfSquaredErrors(S_y, 
+                S_y2, 
+                S_xy, 
+                boxsize, 
+                bestFitResult.m, 
+                bestFitResult.c) / boxsize);
             num_W++;
         }
         mse[i] = local_mse / num_W;
     }
 
     // cleanup
-    free(x);
+    free(sum_mem);
+    free(square_sum_mem);
+    free(product_sum_mem);
 
     return mse;
 }
