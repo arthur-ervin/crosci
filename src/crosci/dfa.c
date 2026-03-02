@@ -46,13 +46,13 @@ double sumOfSquare(double* arr, int n)
 }
 
 // function to calculate the best fit
-BestFitResult bestFit(double* x, double* y, int n)
+BestFitResult bestFit(double* x, double* y, double* sum_mem, double* square_sum_mem, double* product_sum_mem, int n)
 {
     BestFitResult result;
-    double sum_x = sum(x, n);
-    double sum_y = sum(y, n);
-    double sum_x_sq = sumOfSquare(x, n);
-    double sum_xy = sumOfProduct(x, y, n);
+    double sum_x = (n*(n+1))/2;
+    double sum_y = sum_mem[n];
+    double sum_x_sq = square_sum_mem[n];
+    double sum_xy = product_sum_mem[n];
 
     result.m = (n * sum_xy - sum_x * sum_y) / (n * sum_x_sq - sum_x * sum_x);
     result.c = (sum_y - result.m * sum_x) / n;
@@ -105,6 +105,19 @@ double* dfa(double* seq, long npts, long* rs, int nr, double overlap_perc)
         x[i] = i + 1;
     }
 
+    double* sum_mem = malloc((nr+1) * sizeof(double));
+    double* square_sum_mem = malloc((nr+1) * sizeof(double));
+    double* product_sum_mem = malloc((nr+1) * sizeof(double));
+
+    for(int i = 1; i <= npts; i++){
+        sum_mem[i] = seq[i] + sum_mem[i+1];
+        square_sum_mem[i] = seq[i]*seq[i] + square_sum_mem[i+1];
+        product_sum_mem[i] += product_sum_mem[i+1];
+        for(int j = 1; j<=i; j++){
+            product_sum_mem[i] += seq[j];
+        }
+    }
+
     int num_W = 0;
     double local_mse = 0.0;
     BestFitResult bestFitResult;
@@ -127,7 +140,7 @@ double* dfa(double* seq, long npts, long* rs, int nr, double overlap_perc)
 #pragma omp parallel for reduction(+ : local_mse, num_W) private(bestFitResult)
         for (j = 0; j < npts - boxsize; j += inc)
         {
-            bestFitResult = bestFit(x, seq + j, boxsize);
+            bestFitResult = bestFit(x, seq + j, sum_mem, square_sum_mem, product_sum_mem, boxsize);
             local_mse += sqrt(sumOfSquaredErrors(x, seq + j, boxsize, bestFitResult.m, bestFitResult.c) / boxsize);
             num_W++;
         }
