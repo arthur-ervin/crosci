@@ -98,7 +98,7 @@ double* dfa(double* seq, long npts, long* rs, int nr, double overlap_perc)
         for (j = 0; j < npts - boxsize; j += inc)
         {
             double S_y = sum_mem[j+boxsize] - sum_mem[j];
-            double S_y2 = sumOfSquare_new(seq + j, boxsize);
+            double S_y2 = square_sum_mem[j+boxsize] - square_sum_mem[j];
             double S_xy_global = product_sum_mem[j+boxsize] - product_sum_mem[j];
             double S_xy = S_xy_global - ((double)j * S_y); 
             bestFitResult = bestFit(S_y, 
