@@ -32,8 +32,8 @@ BestFitResult bestFit(double S_y, double S_xy, int n)
 // function to calculate the sum of squared errors
 double sumOfSquaredErrors(double S_y, double S_y2, double S_xy, int n, double m, double c)
 {
-    double S_x = (double)n * (n + 1) / 2.0;
-    double S_x2 = (double)n * (n + 1) * (2 * n + 1) / 6.0;
+    double S_x = (double)(n * (n + 1)) / 2.0;
+    double S_x2 = (double)(n * (n + 1) * (2 * n + 1)) / 6.0;
 
     double error = S_y2 - 2*(m*S_xy + S_y*c);
     error += m*m*S_x2 + 2*c*m*S_x + (double)n*c*c;
@@ -76,8 +76,6 @@ double* dfa(double* seq, long npts, long* rs, int nr, double overlap_perc)
         product_sum_mem[i] = product_sum_mem[i-1] + i*seq[i-1];
     }
 
-
-
     int num_W = 0;
     double local_mse = 0.0;
     BestFitResult bestFitResult;
@@ -100,10 +98,9 @@ double* dfa(double* seq, long npts, long* rs, int nr, double overlap_perc)
         for (j = 0; j < npts - boxsize; j += inc)
         {
             double S_y = sum_mem[j+boxsize] - sum_mem[j];
-            double S_y2 = square_sum_mem[j+boxsize] - square_sum_mem[j];
+            double S_y2 = sumOfSquare_new(seq + j, boxsize);
             double S_xy_global = product_sum_mem[j+boxsize] - product_sum_mem[j];
-            double S_xy = S_xy_global - ((double)j * S_y);
-            
+            double S_xy = S_xy_global - ((double)j * S_y); 
             bestFitResult = bestFit(S_y, 
                 S_xy, 
                 boxsize);
