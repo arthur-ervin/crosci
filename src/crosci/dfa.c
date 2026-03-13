@@ -53,6 +53,8 @@ double* dfa(double* seq, long npts, long* rs, int nr, double overlap_perc)
     long i, boxsize, inc, j;
 
     // write cumulative sum
+    // TODO: This code reassigns seq. There shouldn't be the case.
+    // seq should either be pre-processed or a temp array should be used
     for (i = 1; i < npts; i++)
     {
         seq[i] = seq[i - 1] + seq[i];
@@ -66,9 +68,7 @@ double* dfa(double* seq, long npts, long* rs, int nr, double overlap_perc)
     double* square_sum_mem = malloc((npts+1) * sizeof(double));
     double* product_sum_mem = malloc((npts+1) * sizeof(double));
 
-    sum_mem[0] = 0;
-    square_sum_mem[0] = 0;
-    product_sum_mem[0] = 0;
+    sum_mem[0], square_sum_mem[0], product_sum_mem[0] = 0.0;
 
     for(int i = 1; i <= npts; i++){
         sum_mem[i] = seq[i-1] + sum_mem[i-1];
