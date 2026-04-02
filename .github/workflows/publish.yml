@@ -63,7 +63,7 @@ jobs:
           python-version-file: "pyproject.toml"
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.3.1
+        uses: pypa/cibuildwheel@v3.4.1
         with:
           extras: "uv"
 
